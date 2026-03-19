@@ -1,27 +1,18 @@
 import { useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { Wallet, Mail, Lock, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
 
 export function Login() {
   const navigate = useNavigate();
-  const [loginInfo, setLoginInfo] = useState({
-    email: '',
-    password: '',
-  });
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setLoginInfo({ ...loginInfo, [name]: value });
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const { email, password } = loginInfo;
     
     if (!email || !password) {
       toast.error('Please fill in all fields');
@@ -31,33 +22,36 @@ export function Login() {
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-26b96665/auth/login`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({ email, password }),
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error('Login error detail:', error);
+        if (error.message.includes('Email not confirmed')) {
+          toast.error('Please confirm your email address before logging in.');
+        } else {
+          toast.error(error.message);
         }
-      );
+        setLoading(false);
+        return;
+      }
 
-      const data = await response.json();
-
-      if (data.success) {
+      const { session, user } = data;
+      if (session && user) {
+        localStorage.setItem('token', session.access_token);
+        localStorage.setItem('loggedInUser', user.user_metadata?.name || 'User');
+        
         toast.success('Login successful!');
-        localStorage.setItem('token', data.jwtToken);
-        localStorage.setItem('loggedInUser', data.name);
-        setTimeout(() => {
-          navigate('/home');
-        }, 1000);
+        navigate('/home');
       } else {
-        toast.error(data.message || 'Login failed');
+        // This case should ideally be covered by `error` but as a fallback
+        toast.error('Login failed: No session or user data received.');
       }
     } catch (error) {
       console.error('Login error:', error);
-      toast.error('An error occurred. Please try again.');
+      toast.error('An unexpected error occurred during login');
     } finally {
       setLoading(false);
     }
@@ -102,8 +96,8 @@ export function Login() {
                 <input
                   type="email"
                   name="email"
-                  value={loginInfo.email}
-                  onChange={handleChange}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   className="w-full pl-12 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border border-transparent focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all outline-none text-gray-900 dark:text-white"
                   required
@@ -121,8 +115,8 @@ export function Login() {
                 <input
                   type="password"
                   name="password"
-                  value={loginInfo.password}
-                  onChange={handleChange}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
                   className="w-full pl-12 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border border-transparent focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all outline-none text-gray-900 dark:text-white"
                   required

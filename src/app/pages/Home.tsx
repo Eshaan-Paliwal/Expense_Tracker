@@ -13,13 +13,13 @@ import { RecentTransactions } from '../components/RecentTransactions';
 import { AIInsights } from '../components/AIInsights';
 import { AddExpenseForm } from '../components/AddExpenseForm';
 import { motion } from 'motion/react';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { supabase } from '../../lib/supabase';
 
 interface Expense {
-  _id: string;
+  id: string;
   text: string;
   amount: number;
-  createdAt: string;
+  created_at: string;
 }
 
 export function Home() {
@@ -55,16 +55,19 @@ export function Home() {
 
   // Check authentication on mount
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userName = localStorage.getItem('loggedInUser');
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        navigate('/login');
+        return;
+      }
+      
+      setLoggedInUser(session.user.user_metadata?.name || 'User');
+      fetchExpenses();
+    };
     
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    
-    setLoggedInUser(userName || 'User');
-    fetchExpenses();
+    checkUser();
   }, [navigate]);
 
   // Calculate income and expenses
@@ -83,115 +86,65 @@ export function Home() {
 
   const fetchExpenses = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
       
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-26b96665/expenses`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': token || '',
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.status === 403) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('loggedInUser');
-        navigate('/login');
-        return;
-      }
-
-      if (data.success) {
-        setExpenses(data.data);
-      }
-    } catch (error) {
+      setExpenses(data || []);
+    } catch (error: any) {
       console.error('Fetch expenses error:', error);
-      toast.error('Failed to load expenses');
+      toast.error(`Failed to load expenses: ${error.message || 'Unknown error'}`);
     }
   };
 
   const addTransaction = async (expenseData: { text: string; amount: number }) => {
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-26b96665/expenses`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': token || '',
-          },
-          body: JSON.stringify(expenseData),
-        }
-      );
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
 
-      const data = await response.json();
+      const { data, error } = await supabase
+        .from('expenses')
+        .insert([{ ...expenseData, user_id: user.id }])
+        .select();
 
-      if (response.status === 403) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('loggedInUser');
-        navigate('/login');
-        return;
-      }
+      if (error) throw error;
 
-      if (data.success) {
-        setExpenses(data.data);
+      if (data) {
+        setExpenses([data[0], ...expenses]);
         toast.success('Transaction added successfully!');
-      } else {
-        toast.error(data.message || 'Failed to add transaction');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Add transaction error:', error);
-      toast.error('Failed to add transaction');
+      toast.error(`Failed to add transaction: ${error.message || 'Unknown error'}`);
     }
   };
 
   const deleteExpense = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-26b96665/expenses/${id}`,
-        {
-          method: 'DELETE',
-          headers: {
-            'Authorization': token || '',
-          },
-        }
-      );
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id);
 
-      const data = await response.json();
+      if (error) throw error;
 
-      if (response.status === 403) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('loggedInUser');
-        navigate('/login');
-        return;
-      }
-
-      if (data.success) {
-        setExpenses(data.data);
-        toast.success('Transaction deleted successfully!');
-      } else {
-        toast.error(data.message || 'Failed to delete transaction');
-      }
-    } catch (error) {
+      setExpenses(expenses.filter(exp => exp.id !== id));
+      toast.success('Transaction deleted successfully!');
+    } catch (error: any) {
       console.error('Delete transaction error:', error);
-      toast.error('Failed to delete transaction');
+      toast.error(`Failed to delete transaction: ${error.message || 'Unknown error'}`);
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem('token');
     localStorage.removeItem('loggedInUser');
     toast.success('Logged out successfully');
-    setTimeout(() => {
-      navigate('/login');
-    }, 500);
+    navigate('/login');
   };
 
   const toggleTheme = () => {
@@ -278,10 +231,9 @@ export function Home() {
             />
           </div>
 
-          {/* Charts Section */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ExpenseChart theme={theme} />
-            <CategoryChart theme={theme} />
+            <ExpenseChart theme={theme} expenses={expenses} />
+            <CategoryChart theme={theme} expenses={expenses} />
           </div>
 
           {/* Recent Transactions and AI Insights */}

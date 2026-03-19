@@ -11,13 +11,53 @@ const data = [
   { month: 'Jun', income: 5500, expenses: 4200 },
 ];
 
-interface ExpenseChartProps {
-  theme: 'dark' | 'light';
+interface Expense {
+  id: string;
+  text: string;
+  amount: number;
+  created_at: string;
 }
 
-export function ExpenseChart({ theme }: ExpenseChartProps) {
+interface ExpenseChartProps {
+  theme: 'dark' | 'light';
+  expenses: Expense[];
+}
+
+export function ExpenseChart({ theme, expenses }: ExpenseChartProps) {
   const isDark = theme === 'dark';
   const chartId = useMemo(() => Math.random().toString(36).substr(2, 9), []);
+  
+  // Process real data for the chart
+  const chartData = useMemo(() => {
+    const last6Months = Array.from({ length: 6 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - (5 - i));
+      return {
+        month: d.toLocaleString('default', { month: 'short' }),
+        fullMonth: d.getMonth(),
+        year: d.getFullYear(),
+        income: 0,
+        expenses: 0
+      };
+    });
+
+    expenses.forEach(exp => {
+      const date = new Date(exp.created_at);
+      const m = date.getMonth();
+      const y = date.getFullYear();
+      
+      const monthData = last6Months.find(d => d.fullMonth === m && d.year === y);
+      if (monthData) {
+        if (exp.amount > 0) {
+          monthData.income += exp.amount;
+        } else {
+          monthData.expenses += Math.abs(exp.amount);
+        }
+      }
+    });
+
+    return last6Months;
+  }, [expenses]);
   
   return (
     <motion.div
@@ -32,7 +72,7 @@ export function ExpenseChart({ theme }: ExpenseChartProps) {
       </div>
       
       <ResponsiveContainer width="100%" height={300}>
-        <AreaChart data={data}>
+        <AreaChart data={chartData}>
           <defs>
             <linearGradient id={`colorIncome-${chartId}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3}/>

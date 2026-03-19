@@ -1,20 +1,63 @@
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { motion } from 'motion/react';
+import { useMemo } from 'react';
 
-const data = [
-  { name: 'Food', value: 1200, color: '#a855f7' },
-  { name: 'Transport', value: 800, color: '#ec4899' },
-  { name: 'Shopping', value: 950, color: '#f59e0b' },
-  { name: 'Bills', value: 600, color: '#3b82f6' },
-  { name: 'Entertainment', value: 450, color: '#10b981' },
-];
+interface Expense {
+  id: string;
+  text: string;
+  amount: number;
+  created_at: string;
+}
 
 interface CategoryChartProps {
   theme: 'dark' | 'light';
+  expenses: Expense[];
 }
 
-export function CategoryChart({ theme }: CategoryChartProps) {
+export function CategoryChart({ theme, expenses }: CategoryChartProps) {
   const isDark = theme === 'dark';
+
+  const categoryData = useMemo(() => {
+    const categories: Record<string, { value: number; color: string }> = {
+      'Food': { value: 0, color: '#a855f7' },
+      'Transport': { value: 0, color: '#ec4899' },
+      'Shopping': { value: 0, color: '#f59e0b' },
+      'Bills': { value: 0, color: '#3b82f6' },
+      'Entertainment': { value: 0, color: '#10b981' },
+      'Other': { value: 0, color: '#6b7280' },
+    };
+
+    expenses.filter(e => e.amount < 0).forEach(exp => {
+      // Very simple category detection for now (can be improved)
+      const text = exp.text.toLowerCase();
+      let matched = false;
+      
+      if (text.includes('food') || text.includes('eat') || text.includes('restaurant')) {
+        categories['Food'].value += Math.abs(exp.amount);
+        matched = true;
+      } else if (text.includes('uber') || text.includes('bolt') || text.includes('bus') || text.includes('fuel')) {
+        categories['Transport'].value += Math.abs(exp.amount);
+        matched = true;
+      } else if (text.includes('shop') || text.includes('buy') || text.includes('amazon')) {
+        categories['Shopping'].value += Math.abs(exp.amount);
+        matched = true;
+      } else if (text.includes('bill') || text.includes('rent') || text.includes('electricity')) {
+        categories['Bills'].value += Math.abs(exp.amount);
+        matched = true;
+      } else if (text.includes('movie') || text.includes('game') || text.includes('netflix')) {
+        categories['Entertainment'].value += Math.abs(exp.amount);
+        matched = true;
+      }
+      
+      if (!matched) {
+        categories['Other'].value += Math.abs(exp.amount);
+      }
+    });
+
+    return Object.entries(categories)
+      .filter(([_, data]) => data.value > 0)
+      .map(([name, data]) => ({ name, ...data }));
+  }, [expenses]);
   
   return (
     <motion.div
@@ -31,7 +74,7 @@ export function CategoryChart({ theme }: CategoryChartProps) {
       <ResponsiveContainer width="100%" height={300}>
         <PieChart>
           <Pie
-            data={data}
+            data={categoryData}
             cx="50%"
             cy="50%"
             labelLine={false}
@@ -40,7 +83,7 @@ export function CategoryChart({ theme }: CategoryChartProps) {
             dataKey="value"
             label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
           >
-            {data.map((entry, index) => (
+            {categoryData.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={entry.color} />
             ))}
           </Pie>
@@ -57,7 +100,7 @@ export function CategoryChart({ theme }: CategoryChartProps) {
       
       {/* Category List */}
       <div className="mt-4 space-y-2">
-        {data.map((category) => (
+        {categoryData.map((category) => (
           <div key={category.name} className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div 

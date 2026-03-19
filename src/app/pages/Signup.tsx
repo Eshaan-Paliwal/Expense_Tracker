@@ -3,70 +3,53 @@ import { useNavigate } from 'react-router';
 import { motion } from 'motion/react';
 import { Wallet, Mail, Lock, User, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
-import { projectId, publicAnonKey } from '/utils/supabase/info';
+import { supabase } from '../../lib/supabase';
 
 export function Signup() {
   const navigate = useNavigate();
-  const [signupInfo, setSignupInfo] = useState({
-    name: '',
-    email: '',
-    password: '',
-  });
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setSignupInfo({ ...signupInfo, [name]: value });
-  };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const { name, email, password } = signupInfo;
     
     if (!name || !email || !password) {
       toast.error('Please fill in all fields');
       return;
     }
 
-    if (name.length < 3) {
-      toast.error('Name must be at least 3 characters');
-      return;
-    }
-
-    if (password.length < 4) {
-      toast.error('Password must be at least 4 characters');
-      return;
-    }
-
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-26b96665/auth/signup`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${publicAnonKey}`,
-          },
-          body: JSON.stringify({ name, email, password }),
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name },
+        },
+      });
+
+      if (error) {
+        console.error('Signup error detail:', error);
+        toast.error(error.message);
+        setLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        if (!data.session) {
+          toast.success('Registration successful! Please check your email for a confirmation link.');
+        } else {
+          toast.success('Registration successful! Logging you in...');
+          navigate('/home');
         }
-      );
-
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success('Account created successfully!');
-        setTimeout(() => {
-          navigate('/login');
-        }, 1000);
-      } else {
-        toast.error(data.message || 'Signup failed');
+        navigate('/login');
       }
     } catch (error) {
       console.error('Signup error:', error);
-      toast.error('An error occurred. Please try again.');
+      toast.error('An unexpected error occurred during signup');
     } finally {
       setLoading(false);
     }
@@ -111,8 +94,8 @@ export function Signup() {
                 <input
                   type="text"
                   name="name"
-                  value={signupInfo.name}
-                  onChange={handleChange}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="John Doe"
                   className="w-full pl-12 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border border-transparent focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all outline-none text-gray-900 dark:text-white"
                   required
@@ -130,8 +113,8 @@ export function Signup() {
                 <input
                   type="email"
                   name="email"
-                  value={signupInfo.email}
-                  onChange={handleChange}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
                   className="w-full pl-12 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border border-transparent focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all outline-none text-gray-900 dark:text-white"
                   required
@@ -149,8 +132,8 @@ export function Signup() {
                 <input
                   type="password"
                   name="password"
-                  value={signupInfo.password}
-                  onChange={handleChange}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   placeholder="Create a password"
                   className="w-full pl-12 pr-4 py-3 rounded-2xl bg-gray-50 dark:bg-gray-700 border border-transparent focus:border-purple-500 focus:ring-2 focus:ring-purple-500/20 transition-all outline-none text-gray-900 dark:text-white"
                   required

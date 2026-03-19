@@ -2,10 +2,10 @@ import { ShoppingBag, Coffee, Car, Home, Sparkles, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Expense {
-  _id: string;
+  id: string;
   text: string;
   amount: number;
-  createdAt: string;
+  created_at: string;
 }
 
 interface RecentTransactionsProps {
@@ -66,7 +66,7 @@ export function RecentTransactions({ expenses, onDelete }: RecentTransactionsPro
             
             return (
               <motion.div
-                key={transaction._id}
+                key={transaction.id}
                 initial={{ x: -20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 transition={{ delay: 0.5 + index * 0.05 }}
@@ -83,7 +83,7 @@ export function RecentTransactions({ expenses, onDelete }: RecentTransactionsPro
                   <h4 className="font-medium text-gray-900 dark:text-white truncate">
                     {transaction.text}
                   </h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(transaction.createdAt)}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(transaction.created_at)}</p>
                 </div>
                 
                 {/* Amount */}
@@ -99,7 +99,7 @@ export function RecentTransactions({ expenses, onDelete }: RecentTransactionsPro
                   
                   {/* Delete Button */}
                   <button
-                    onClick={() => onDelete(transaction._id)}
+                    onClick={() => onDelete(transaction.id)}
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     <Trash2 className="w-4 h-4 text-red-500" />

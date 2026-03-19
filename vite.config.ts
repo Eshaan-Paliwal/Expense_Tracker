@@ -16,6 +16,25 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router'],
+          'vendor-mui': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          'vendor-recharts': ['recharts'],
+          'vendor-d3': [
+            'd3-array', 'd3-color', 'd3-ease', 'd3-format', 'd3-interpolate',
+            'd3-path', 'd3-scale', 'd3-shape', 'd3-time', 'd3-time-format', 'd3-timer'
+          ],
+          'vendor-motion': ['motion'],
+          'vendor-lucide': ['lucide-react'],
+          'vendor-utils': ['date-fns', 'clsx', 'tailwind-merge'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 
   // File types to support raw imports. Never add .css, .tsx, or .ts files to this.
   assetsInclude: ['**/*.svg', '**/*.csv'],
